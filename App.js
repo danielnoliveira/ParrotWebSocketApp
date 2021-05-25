@@ -6,7 +6,7 @@
  * @flow strict-local
  */
 
-import React, {useState} from 'react';
+import React, {useState, useEffect} from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -25,28 +25,39 @@ import {backgroundStyle} from 'react-native/Libraries/NewAppScreen';
 import Icon from 'react-native-vector-icons/FontAwesome';
 
 const bRadiusDefaultInputs = 10;
+const socket = new WebSocket('wss://echo.websocket.org');
 
 const App = () => {
+  const [readySocket, setReadySocket] = useState(false);
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState([
-    {text: 'Ola parrot', my: true},
-    {text: 'Ola humano', my: false},
+    {
+      text: 'Ola humano. Eu sou Parrot, o majestoso papagaio imitador, vamos comversar um pouco?',
+      my: false,
+    },
   ]);
+  socket.onmessage = msg =>
+    setMessages([...messages, {text: msg.data, my: false}]);
+  socket.onopen = e => {
+    setReadySocket(!readySocket);
+  };
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.select({ios: 'padding', android: 'height'})}>
       <StatusBar hidden />
       <ScrollView
-        contentInsetAdjustmentBehavior="automatic"
         style={styles.scrollViewContainer}
         contentContainerStyle={styles.messageContainer}>
         {messages === null
           ? []
           : messages.map((m, index) => {
-              const side = m.my ? 'flex-start' : 'flex-end';
+              const side = m.my
+                ? {alignSelf: 'flex-start', backgroundColor: 'white'}
+                : {alignSelf: 'flex-end', backgroundColor: '#f5abc9'};
               return (
-                <View style={[styles.messageBallon, {alignSelf: side}]}>
+                <View key={index} style={[styles.messageBallon, side]}>
                   <Text style={styles.messageText}>{m.text}</Text>
                 </View>
               );
@@ -62,8 +73,16 @@ const App = () => {
           placeholderTextColor="#b1b1b1"
         />
         <TouchableOpacity
-          style={styles.inputButton}
-          onPress={() => setMessage('')}>
+          disabled={!readySocket}
+          style={[
+            styles.inputButton,
+            {backgroundColor: !readySocket ? '#c2c2c2' : 'rgb(255,156,120)'},
+          ]}
+          onPress={() => {
+            socket.send(message);
+            setMessages([...messages, {text: message, my: true}]);
+            setMessage('');
+          }}>
           <Icon name="send" color="white" size={30} />
         </TouchableOpacity>
       </View>
@@ -116,6 +135,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 5,
     marginBottom: 10,
+    maxWidth: '80%',
   },
   messageText: {
     fontWeight: '500',
