@@ -6,7 +6,7 @@
  * @flow strict-local
  */
 
-import React, {useState, useEffect} from 'react';
+import React, {useState, useRef} from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -16,18 +16,16 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  TouchableHighlight,
   TouchableOpacity,
-  useColorScheme,
   View,
 } from 'react-native';
-import {backgroundStyle} from 'react-native/Libraries/NewAppScreen';
 import Icon from 'react-native-vector-icons/FontAwesome';
 
 const bRadiusDefaultInputs = 10;
 const socket = new WebSocket('wss://echo.websocket.org');
 
 const App = () => {
+  const scrollViewRef = useRef();
   const [readySocket, setReadySocket] = useState(false);
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState([
@@ -43,11 +41,15 @@ const App = () => {
   };
 
   return (
-    <KeyboardAvoidingView
+    <View
       style={styles.container}
       behavior={Platform.select({ios: 'padding', android: 'height'})}>
       <StatusBar hidden />
       <ScrollView
+        ref={scrollViewRef}
+        onContentSizeChange={() =>
+          scrollViewRef.current.scrollToEnd({animated: true})
+        }
         style={styles.scrollViewContainer}
         contentContainerStyle={styles.messageContainer}>
         {messages === null
@@ -63,37 +65,42 @@ const App = () => {
               );
             })}
       </ScrollView>
-      <View style={styles.inputsContainer}>
-        <TextInput
-          onChangeText={text => setMessage(text)}
-          value={message}
-          style={styles.inputText}
-          multiline={true}
-          placeholder="Sua mensagem aqui..."
-          placeholderTextColor="#b1b1b1"
-        />
-        <TouchableOpacity
-          disabled={!readySocket}
-          style={[
-            styles.inputButton,
-            {backgroundColor: !readySocket ? '#c2c2c2' : 'rgb(255,156,120)'},
-          ]}
-          onPress={() => {
-            socket.send(message);
-            setMessages([...messages, {text: message, my: true}]);
-            setMessage('');
-          }}>
-          <Icon name="send" color="white" size={30} />
-        </TouchableOpacity>
-      </View>
-    </KeyboardAvoidingView>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'android' ? 'padding' : 'height'}>
+        <View style={styles.inputsContainer}>
+          <TextInput
+            onChangeText={text => setMessage(text)}
+            value={message}
+            style={styles.inputText}
+            multiline={true}
+            placeholder="Sua mensagem aqui..."
+            placeholderTextColor="#b1b1b1"
+          />
+          <TouchableOpacity
+            disabled={!readySocket}
+            style={[
+              styles.inputButton,
+              {backgroundColor: !readySocket ? '#c2c2c2' : 'rgb(255,156,120)'},
+            ]}
+            onPress={() => {
+              if (message.length === 0) {
+                return;
+              }
+              socket.send(message);
+              setMessages([...messages, {text: message, my: true}]);
+              setMessage('');
+            }}>
+            <Icon name="send" color="white" size={30} />
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'flex-end',
   },
   inputsContainer: {
     flexDirection: 'row',
@@ -122,9 +129,9 @@ const styles = StyleSheet.create({
   },
   scrollViewContainer: {
     backgroundColor: '#2d9',
+    paddingTop: 10,
   },
   messageContainer: {
-    flex: 1,
     justifyContent: 'flex-end',
     paddingHorizontal: 8,
     paddingBottom: 10,
