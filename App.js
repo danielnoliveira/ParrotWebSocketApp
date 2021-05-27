@@ -6,65 +6,70 @@
  * @flow strict-local
  */
 
-import React, {useState, useRef} from 'react';
+import React, {useState, useEffect} from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
-  SafeAreaView,
-  ScrollView,
   StatusBar,
   StyleSheet,
-  Text,
   TextInput,
-  TouchableOpacity,
   View,
 } from 'react-native';
-import Icon from 'react-native-vector-icons/FontAwesome';
+import {getHour} from './src/utils/ToolsTime';
+
+import MessagesContainer from './src/components/MessagesContainer';
+import Ballon from './src/components/Ballon';
+import SendButton from './src/components/SendButton';
 
 const bRadiusDefaultInputs = 10;
-const socket = new WebSocket('wss://echo.websocket.org');
+var socket = null;
+const openTime = getHour();
 
 const App = () => {
-  const scrollViewRef = useRef();
   const [readySocket, setReadySocket] = useState(false);
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState([
     {
-      text: 'Ola humano. Eu sou Parrot, o majestoso papagaio imitador, vamos comversar um pouco?',
+      text: 'Ola humano. Eu sou Parrot, o majestoso papagaio imitador, vamos conversar um pouco?',
       my: false,
+      time: openTime,
     },
   ]);
-  socket.onmessage = msg =>
-    setMessages([...messages, {text: msg.data, my: false}]);
-  socket.onopen = e => {
-    setReadySocket(!readySocket);
-  };
+  useEffect(() => {
+    socket = new WebSocket('wss://echo.websocket.org');
+    socket.onmessage = msg =>
+      setMessages(m => [...m, {text: msg.data, my: false, time: getHour()}]);
+    socket.onopen = e => {
+      setReadySocket(!readySocket);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
+  const sendMessage = () => {
+    if (message.length === 0) {
+      return;
+    }
+    socket.send(message);
+    setMessages([...messages, {text: message, my: true, time: getHour()}]);
+    setMessage('');
+  };
   return (
-    <View
-      style={styles.container}
-      behavior={Platform.select({ios: 'padding', android: 'height'})}>
+    <View style={styles.container}>
       <StatusBar hidden />
-      <ScrollView
-        ref={scrollViewRef}
-        onContentSizeChange={() =>
-          scrollViewRef.current.scrollToEnd({animated: true})
-        }
-        style={styles.scrollViewContainer}
-        contentContainerStyle={styles.messageContainer}>
+      <MessagesContainer>
         {messages === null
           ? []
           : messages.map((m, index) => {
-              const side = m.my
-                ? {alignSelf: 'flex-start', backgroundColor: 'white'}
-                : {alignSelf: 'flex-end', backgroundColor: '#f5abc9'};
               return (
-                <View key={index} style={[styles.messageBallon, side]}>
-                  <Text style={styles.messageText}>{m.text}</Text>
-                </View>
+                <Ballon
+                  key={index}
+                  rightSide={!m.my}
+                  text={m.text}
+                  time={m.time}
+                />
               );
             })}
-      </ScrollView>
+      </MessagesContainer>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'android' ? 'padding' : 'height'}>
         <View style={styles.inputsContainer}>
@@ -76,22 +81,7 @@ const App = () => {
             placeholder="Sua mensagem aqui..."
             placeholderTextColor="#b1b1b1"
           />
-          <TouchableOpacity
-            disabled={!readySocket}
-            style={[
-              styles.inputButton,
-              {backgroundColor: !readySocket ? '#c2c2c2' : 'rgb(255,156,120)'},
-            ]}
-            onPress={() => {
-              if (message.length === 0) {
-                return;
-              }
-              socket.send(message);
-              setMessages([...messages, {text: message, my: true}]);
-              setMessage('');
-            }}>
-            <Icon name="send" color="white" size={30} />
-          </TouchableOpacity>
+          <SendButton readySocket={readySocket} sendMessage={sendMessage} />
         </View>
       </KeyboardAvoidingView>
     </View>
@@ -118,35 +108,6 @@ const styles = StyleSheet.create({
     textAlign: 'justify',
     fontSize: 20,
     lineHeight: 22,
-  },
-  inputButton: {
-    backgroundColor: 'rgb(255,156,120)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderTopRightRadius: bRadiusDefaultInputs,
-    borderBottomRightRadius: bRadiusDefaultInputs,
-    width: 55,
-  },
-  scrollViewContainer: {
-    backgroundColor: '#2d9',
-    paddingTop: 10,
-  },
-  messageContainer: {
-    justifyContent: 'flex-end',
-    paddingHorizontal: 8,
-    paddingBottom: 10,
-  },
-  messageBallon: {
-    borderRadius: 20,
-    backgroundColor: 'white',
-    paddingHorizontal: 20,
-    paddingVertical: 5,
-    marginBottom: 10,
-    maxWidth: '80%',
-  },
-  messageText: {
-    fontWeight: '500',
-    fontSize: 22,
   },
 });
 
