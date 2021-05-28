@@ -2,7 +2,7 @@
 
 ## Tecnologias usadas
 
-Principais: React Native
+Principais: React Native.
 Pacotes especiais utilizados:
 <ul>
   <li>@react-native-community/netinfo para recuperar informações sobre a conexão com a internet</li>
